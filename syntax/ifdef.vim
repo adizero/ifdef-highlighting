@@ -139,18 +139,6 @@ else
   let b:current_syntax = b:current_syntax.'+ifdef'
 endif
 
-" TODO add per PANOS .defines ?
-" or generate dynamically on demand ?
-" if $GASH != ""
-"     let $testdir = $GASH
-" else
-"     let current_dir = expand("%:p:h")
-"     if (matchstr(current_dir,"/gash/") != "")
-"         let current_dir = substitute(current_dir,'/gash/.*','/gash','')
-"         let $testdir = current_dir
-"     endif
-" endif
-
 " Override c.vim
 " Settings for the c.vim highlighting .. disable the default preprocessor handling.
 if hlexists('cPreCondit')
@@ -272,7 +260,7 @@ function! s:CIfDef(force)
   " Start sync from scratch
   syn sync fromstart
 
-  " FIXME AKO added
+  " Todo(akocis): fix syntax folder (currently does not fold properly when else branch is active)
   setlocal foldmethod=syntax
 endfunction
 
@@ -387,9 +375,13 @@ endfun
 
 " Load ifdefs for a file
 fun! IfdefLoad()
-  " let l:file_list = split(system("list_git_modified_files.sh -r"), "\n")
-  " let displist = readfile(display_file, '', 1)
-  let txt = system("compilation.py --dump-defines-list " . expand("%p"))
+  let txt = "undefined=*\ndefined=" . system("compilation.py -e -m " . expand("%:p")
+        \ . " -o - 2>/dev/null | awk '{print $2}' /tmp/pre.cc | awk -F'(' '{print $1}' | tr '\n' ','")
+
+  if txt == ''
+    " fallback if compilation.py -e -m fails (preprocessor macro dump)
+    let txt = system("compilation.py --dump-defines-list " . expand("%:p"))
+  endif
 
   if txt == ''
     " fallback if compilation.py --dump-defines-list does not work
@@ -418,19 +410,12 @@ fun! IfdefLoad()
   endwhile
 endfun
 
-" SUL - define highlight colors: just colors for cterm are tuned here
-hi default ifdefIfZero term=bold ctermfg=245 ctermbg=238 gui=italic guifg=DarkSeaGreen
-hi default link ifdefUndefined ifdefIfZero
-hi default link ifdefNeutralDefine ifdefIfZero
-hi default ifdefElseEndifInBracketError term=bold ctermfg=88 ctermbg=245 gui=italic guifg=DarkSeaGreen
-
-"  hi default ifdefIfZero term=bold ctermfg=1 gui=italic guifg=DarkSeaGreen
-" hi default link ifdefIfZero Comment
+hi default link ifdefIfZero Comment
 hi default link ifdefCommentAtEnd Comment
-" hi default link ifdefUndefined Debug
+hi default link ifdefUndefined Debug
 hi default link ifdefInUndefinedIf ifdefUndefined
 hi default link ifdefElseInDefinedToUndefined ifdefUndefined
-" hi default link ifdefNeutralDefine PreCondit
+hi default link ifdefNeutralDefine PreCondit
 hi default link ifdefNeutralPreProc PreProc
 hi default link ifdefElseInDefinedNeutral PreCondit
 hi default link ifdefElseInUndefinedNeutral PreCondit
@@ -443,7 +428,15 @@ hi default link ifdefPreCondit3 ifdefPreCondit1
 hi default link ifdefPreCondit4 ifdefPreCondit1
 hi default link ifdefPreCondit5 ifdefPreCondit1
 hi default link ifdefPreCondit6 ifdefPreCondit1
-" hi default link ifdefElseEndifInBracketError Special
+hi default link ifdefElseEndifInBracketError Special
+
+" " SUL - define highlight colors: just colors for cterm are tuned here
+" hi default ifdefIfZero term=bold ctermfg=245 ctermbg=238 gui=italic guifg=DarkSeaGreen
+" hi default ifdefElseEndifInBracketError term=bold ctermfg=88 ctermbg=245 gui=italic guifg=DarkSeaGreen
+hi link ifdefIfZero Folded
+hi link ifdefUndefined ifdefIfZero
+hi link ifdefNeutralDefine ifdefIfZero
+hi link ifdefElseEndifInBracketError Visual
 
 call s:CIfDef(1)
 call IfdefLoad()
