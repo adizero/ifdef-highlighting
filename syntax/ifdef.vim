@@ -139,9 +139,20 @@ else
   let b:current_syntax = b:current_syntax.'+ifdef'
 endif
 
+" TODO add per PANOS .defines ?
+" or generate dynamically on demand ?
+" if $GASH != ""
+"     let $testdir = $GASH
+" else
+"     let current_dir = expand("%:p:h")
+"     if (matchstr(current_dir,"/gash/") != "")
+"         let current_dir = substitute(current_dir,'/gash/.*','/gash','')
+"         let $testdir = current_dir
+"     endif
+" endif
 
+" Override c.vim
 " Settings for the c.vim highlighting .. disable the default preprocessor handling.
-let c_no_if0=1
 if hlexists('cPreCondit')
   syn clear cPreCondit
 endif
@@ -155,6 +166,31 @@ endif
 if hlexists('cCppSkip')
   syn clear cCppSkip
 endif
+
+" remove fold tags
+if exists("c_curly_error")
+  if hlexists('cCurlyError')
+    syn clear cCurlyError
+  endif
+  if hlexists('cBlock')
+    syn clear cBlock
+  endif
+  syn match cCurlyError "}"
+  syn region	cBlock		start="{" end="}" contains=ALLBUT,cBadBlock,cCurlyError,@cParenGroup,cErrInParen,cCppParen,cErrInBracket,cCppBracket,@cStringGroup,@Spell
+else
+  if hlexists('cBlock')
+    syn clear cBlock
+  endif
+  syn region	cBlock		start="{" end="}" transparent
+endif
+if hlexists('cBadBlock')
+  syn clear cBadBlock
+endif
+let s:ft = matchstr(&ft, '^\([^.]\)\+')
+if s:ft ==# 'c' || exists("cpp_no_cpp11")
+  syn region	cBadBlock	keepend start="{" end="}" contained containedin=cParen,cBracket,cBadBlock transparent
+endif
+unlet s:ft
 
 " Reload protection
 if !exists('ifdef_loaded') || exists('ifdef_debug')
@@ -206,20 +242,22 @@ function! s:CIfDef(force)
   syn match ifdefElseInUndefinedNeutral "^\s*#\s*\(elif\>\|else\>\)" contained skipwhite nextgroup=ifdefCommentAtEnd
 
   " #if 0 matching
-  syn region ifdefUndefined  matchgroup=ifdefPreCondit4 start="^\s*#\s*if\s\+0\>" matchgroup=ifdefPreCondit4 end="^\s*#\s*endif" contains=@ifdefClusterUndefined,ifdefElseInUndefinedToDefined
+  syn region ifdefUndefined  matchgroup=ifdefPreCondit4 start="^\s*#\s*if\s\+0\>" matchgroup=ifdefPreCondit4 end="^\s*#\s*endif" contains=@ifdefClusterUndefined,ifdefElseInUndefinedToDefined fold
 
   " #else handling .. switching to out group
-  syn region ifdefElseInDefinedToUndefined matchgroup=ifdefPreCondit3 start="^\s*#\s*else\>" end="^\s*#\s*endif\>"me=s-1 contained contains=@ifdefClusterUndefined
+  syn region ifdefElseInDefinedToUndefined matchgroup=ifdefPreCondit3 start="^\s*#\s*else\>" end="^\s*#\s*endif\>"me=s-1 contained contains=@ifdefClusterUndefined fold
   " #else handling .. switching to in group
-  syn region ifdefElseInUndefinedToDefined matchgroup=ifdefPreCondit6 start="^\s*#\s*else\>" end="^\s*#\s*endif\>"me=s-1 contained contains=@ifdefClusterDefined
+  syn region ifdefElseInUndefinedToDefined matchgroup=ifdefPreCondit6 start="^\s*#\s*else\>" end="^\s*#\s*endif\>"me=s-1 contained contains=@ifdefClusterDefined fold
 
   " Handle #else, #endif inside a bracket. Not really an error, but impossible
   " to work out.
   syn match ifdefElseEndifInBracketError "^\s*#\s*\(elif\>\|else\>\|endif\>\)" contained containedin=cParen
 
   " comment highlighting
-  syntax region ifdefInUndefinedComment start="/\*" end="\*/" contained contains=cCharacter,cNumber,cFloat,cSpaceError
-  syntax match  ifdefInUndefinedComment "//.*" contained contains=cCharacter,cNumber,cSpaceError
+  syntax region ifdefInUndefinedComment start="/\*" end="\*/" contained 
+  "contains=cCharacter,cNumbersCom,cSpaceError
+  syntax match  ifdefInUndefinedComment "//.*" contained 
+  "contains=cCharacter,cNumbersCom,cSpaceError
 
   " Now add to all the c/rc/idl clusters
   syn cluster cParenGroup add=ifdefInUndefined.*,ifdefElse.*,ifdefInNeutralIf
@@ -234,13 +272,15 @@ function! s:CIfDef(force)
   " Start sync from scratch
   syn sync fromstart
 
+  " FIXME AKO added
+  setlocal foldmethod=syntax
 endfunction
 
 " Mark a (regexp) definition as defined.
 " Note that the regular expression is use with \< \> arround it.
 fun! Define(define)
   call CIfDef()
-  exe 'syn region ifdefUndefined  matchgroup=ifdefPreCondit4 start="^\s*#\s*ifndef\s\+'.a:define.'\>" matchgroup=ifdefPreCondit4 end="^\s*#\s*endif" contains=@ifdefClusterUndefined,ifdefElseInUndefinedToDefined'
+  exe 'syn region ifdefUndefined  matchgroup=ifdefPreCondit4 start="^\s*#\s*ifndef\s\+'.a:define.'\>" matchgroup=ifdefPreCondit4 end="^\s*#\s*endif" contains=@ifdefClusterUndefined,ifdefElseInUndefinedToDefined fold'
   exe 'syn region ifdefDefined matchgroup=ifdefPreCondit5 start="^\s*#\s*ifdef\s\+'.a:define.'\>" matchgroup=ifdefPreCondit5 end="^\s*#\s*endif" contains=@ifdefClusterDefined,ifdefElseInDefinedToUndefined'
 endfun
 
@@ -248,7 +288,7 @@ endfun
 " Note that the regular expression is use with \< \> arround it.
 fun! Undefine(define)
   call CIfDef()
-  exe 'syn region ifdefUndefined  matchgroup=ifdefPreCondit4 start="^\s*#\s*ifdef\s\+'.a:define.'\>" matchgroup=ifdefPreCondit4 end="^\s*#\s*endif" contains=@ifdefClusterUndefined,ifdefElseInUndefinedToDefined'
+  exe 'syn region ifdefUndefined  matchgroup=ifdefPreCondit4 start="^\s*#\s*ifdef\s\+'.a:define.'\>" matchgroup=ifdefPreCondit4 end="^\s*#\s*endif" contains=@ifdefClusterUndefined,ifdefElseInUndefinedToDefined fold'
   exe 'syn region ifdefDefined matchgroup=ifdefPreCondit5 start="^\s*#\s*ifndef\s\+'.a:define.'\>" matchgroup=ifdefPreCondit5 end="^\s*#\s*endif" contains=@ifdefClusterDefined,ifdefElseInDefinedToUndefined'
 
 endfun
@@ -303,8 +343,17 @@ function! s:CheckDirForFile(directory,file)
 endfun
 
 " Read a .defines file in the specified (or higher) directory
-fun! s:ReadFile( dir, filename)
-  let realdir= s:CheckDirForFile( a:dir, a:filename )
+fun! s:ReadFile( dir, filename, recursive_search_flag)
+  if a:recursive_search_flag == 1
+    let realdir= s:CheckDirForFile( a:dir, a:filename )
+  else
+    let slsh= ((a:dir=~'[/\\]$') ? '' : '/')
+    if filereadable(a:dir.slsh.a:filename)
+      let realdir=a:dir.slsh
+    else
+      let realdir=''
+    endif
+  endif
   if realdir=='' | return '' | endif
   " if has('dos16') || has('gui_win32s') || has('win16') || ha
   if !has('unix') && !&shellslash && &shell !~ 'sh[a-z.]*$'
@@ -338,7 +387,18 @@ endfun
 
 " Load ifdefs for a file
 fun! IfdefLoad()
-  let txt=s:ReadFile(expand('%:p:h'),g:ifdef_filename)
+  " let l:file_list = split(system("list_git_modified_files.sh -r"), "\n")
+  " let displist = readfile(display_file, '', 1)
+  let txt = system("compilation.py --dump-defines-list " . expand("%p"))
+
+  if txt == ''
+    " fallback if compilation.py --dump-defines-list does not work
+    let txt=s:ReadFile(expand("$HOME"),g:ifdef_filename,0)
+    if txt == ''
+      let txt=s:ReadFile(expand('%:p:h'),g:ifdef_filename,1)
+    endif
+  endif
+
   if txt!='' && txt !~"[\r\n]$" | let txt=txt."\n" | endif
   let txt=txt.s:ReadDefineModeline()
   let reCr="[^\n\r]*[\r\n]*"
@@ -358,13 +418,19 @@ fun! IfdefLoad()
   endwhile
 endfun
 
+" SUL - define highlight colors: just colors for cterm are tuned here
+hi default ifdefIfZero term=bold ctermfg=245 ctermbg=238 gui=italic guifg=DarkSeaGreen
+hi default link ifdefUndefined ifdefIfZero
+hi default link ifdefNeutralDefine ifdefIfZero
+hi default ifdefElseEndifInBracketError term=bold ctermfg=88 ctermbg=245 gui=italic guifg=DarkSeaGreen
+
 "  hi default ifdefIfZero term=bold ctermfg=1 gui=italic guifg=DarkSeaGreen
-hi default link ifdefIfZero Comment
+" hi default link ifdefIfZero Comment
 hi default link ifdefCommentAtEnd Comment
-hi default link ifdefUndefined Debug
+" hi default link ifdefUndefined Debug
 hi default link ifdefInUndefinedIf ifdefUndefined
 hi default link ifdefElseInDefinedToUndefined ifdefUndefined
-hi default link ifdefNeutralDefine PreCondit
+" hi default link ifdefNeutralDefine PreCondit
 hi default link ifdefNeutralPreProc PreProc
 hi default link ifdefElseInDefinedNeutral PreCondit
 hi default link ifdefElseInUndefinedNeutral PreCondit
@@ -377,7 +443,7 @@ hi default link ifdefPreCondit3 ifdefPreCondit1
 hi default link ifdefPreCondit4 ifdefPreCondit1
 hi default link ifdefPreCondit5 ifdefPreCondit1
 hi default link ifdefPreCondit6 ifdefPreCondit1
-hi default link ifdefElseEndifInBracketError Special
+" hi default link ifdefElseEndifInBracketError Special
 
 call s:CIfDef(1)
 call IfdefLoad()
