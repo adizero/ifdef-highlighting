@@ -436,7 +436,7 @@ hi default link ifdefElseEndifInBracketError Special
 hi link ifdefIfZero Folded
 hi link ifdefUndefined ifdefIfZero
 hi link ifdefNeutralDefine ifdefIfZero
-hi link ifdefElseEndifInBracketError Visual
+hi link ifdefElseEndifInBracketError Special
 
 call s:CIfDef(1)
 call IfdefLoad()
