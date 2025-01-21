@@ -242,9 +242,9 @@ function! s:CIfDef(force)
   syn match ifdefElseEndifInBracketError "^\s*#\s*\(elif\>\|else\>\|endif\>\)" contained containedin=cParen
 
   " comment highlighting
-  syntax region ifdefInUndefinedComment start="/\*" end="\*/" contained 
+  syntax region ifdefInUndefinedComment start="/\*" end="\*/" contained
   "contains=cCharacter,cNumbersCom,cSpaceError
-  syntax match  ifdefInUndefinedComment "//.*" contained 
+  syntax match  ifdefInUndefinedComment "//.*" contained
   "contains=cCharacter,cNumbersCom,cSpaceError
 
   " Now add to all the c/rc/idl clusters
@@ -375,8 +375,11 @@ endfun
 
 " Load ifdefs for a file
 fun! IfdefLoad()
-  let txt = "undefined=*\ndefined=" . system("compilation.py -e -m " . expand("%:p")
-        \ . " -o - 2>/dev/null | awk '{print $2}' /tmp/pre.cc | awk -F'(' '{print $1}' | tr '\n' ','")
+  " compilation.py -e -m
+  " outputs too many defines (disabled for now)
+  " let txt = "undefined=*\ndefined=" . system("compilation.py -e -m " . expand("%:p")
+  "       \ . " -o - 2>/dev/null | awk '{print $2}' | awk -F'(' '{print $1}' | tr '\n' ','")
+  let txt = ''
 
   if txt == ''
     " fallback if compilation.py -e -m fails (preprocessor macro dump)
